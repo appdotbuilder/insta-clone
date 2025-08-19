@@ -1,15 +1,66 @@
+import { db } from '../db';
+import { likesTable, postsTable, usersTable } from '../db/schema';
 import { type CreateLikeInput, type Like } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
-export async function likePost(input: CreateLikeInput): Promise<Like> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a like for a post and updating the post's like count.
-    // Should validate that user and post exist.
-    // Should prevent duplicate likes (user can only like a post once).
-    // Should increment the post's like_count.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const likePost = async (input: CreateLikeInput): Promise<Like> => {
+  try {
+    // Validate that user exists
+    const user = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (user.length === 0) {
+      throw new Error('User not found');
+    }
+
+    // Validate that post exists
+    const post = await db.select()
+      .from(postsTable)
+      .where(eq(postsTable.id, input.post_id))
+      .execute();
+
+    if (post.length === 0) {
+      throw new Error('Post not found');
+    }
+
+    // Check if like already exists
+    const existingLike = await db.select()
+      .from(likesTable)
+      .where(
+        and(
+          eq(likesTable.user_id, input.user_id),
+          eq(likesTable.post_id, input.post_id)
+        )
+      )
+      .execute();
+
+    if (existingLike.length > 0) {
+      throw new Error('User has already liked this post');
+    }
+
+    // Create the like
+    const result = await db.insert(likesTable)
+      .values({
         user_id: input.user_id,
-        post_id: input.post_id,
-        created_at: new Date()
-    } as Like);
-}
+        post_id: input.post_id
+      })
+      .returning()
+      .execute();
+
+    // Increment the post's like count
+    await db.update(postsTable)
+      .set({
+        like_count: post[0].like_count + 1,
+        updated_at: new Date()
+      })
+      .where(eq(postsTable.id, input.post_id))
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Like post failed:', error);
+    throw error;
+  }
+};

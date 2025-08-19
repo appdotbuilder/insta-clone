@@ -1,17 +1,55 @@
+import { db } from '../db';
+import { commentsTable, postsTable, usersTable } from '../db/schema';
 import { type CreateCommentInput, type Comment } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function createComment(input: CreateCommentInput): Promise<Comment> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a comment on a post and updating the post's comment count.
-    // Should validate that user and post exist.
-    // Should increment the post's comment_count.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createComment = async (input: CreateCommentInput): Promise<Comment> => {
+  try {
+    // Validate that the user exists
+    const user = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .limit(1)
+      .execute();
+
+    if (user.length === 0) {
+      throw new Error(`User with id ${input.user_id} does not exist`);
+    }
+
+    // Validate that the post exists
+    const post = await db.select()
+      .from(postsTable)
+      .where(eq(postsTable.id, input.post_id))
+      .limit(1)
+      .execute();
+
+    if (post.length === 0) {
+      throw new Error(`Post with id ${input.post_id} does not exist`);
+    }
+
+    // Create the comment
+    const result = await db.insert(commentsTable)
+      .values({
         user_id: input.user_id,
         post_id: input.post_id,
         content: input.content,
-        like_count: 0,
-        created_at: new Date(),
+        like_count: 0
+      })
+      .returning()
+      .execute();
+
+    // Increment the post's comment count
+    await db.update(postsTable)
+      .set({
+        comment_count: post[0].comment_count + 1,
         updated_at: new Date()
-    } as Comment);
-}
+      })
+      .where(eq(postsTable.id, input.post_id))
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Comment creation failed:', error);
+    throw error;
+  }
+};

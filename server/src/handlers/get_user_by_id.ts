@@ -1,22 +1,25 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type User } from '../schema';
 
 export async function getUserById(userId: number): Promise<User | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching a user profile by ID from the database.
-    // Should return null if user doesn't exist.
-    return Promise.resolve({
-        id: userId,
-        username: 'placeholder_user',
-        email: 'placeholder@email.com',
-        full_name: 'Placeholder User',
-        bio: 'This is a placeholder bio',
-        profile_image_url: null,
-        is_verified: false,
-        follower_count: 0,
-        following_count: 0,
-        posts_count: 0,
-        is_private: false,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as User);
+  try {
+    // Query user by ID
+    const results = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .execute();
+
+    // Return null if user not found
+    if (results.length === 0) {
+      return null;
+    }
+
+    // Return the user data
+    return results[0];
+  } catch (error) {
+    console.error('Failed to fetch user by ID:', error);
+    throw error;
+  }
 }

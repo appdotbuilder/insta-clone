@@ -1,9 +1,23 @@
+import { db } from '../db';
+import { postsTable } from '../db/schema';
 import { type GetUserPostsInput, type Post } from '../schema';
+import { eq, desc } from 'drizzle-orm';
 
 export async function getUserPosts(input: GetUserPostsInput): Promise<Post[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching posts by a specific user from the database.
-    // Should support pagination with limit and offset.
-    // Should return posts ordered by creation date (newest first).
-    return Promise.resolve([]);
+  try {
+    // Build query with user filter, ordering, and pagination
+    const results = await db.select()
+      .from(postsTable)
+      .where(eq(postsTable.user_id, input.user_id))
+      .orderBy(desc(postsTable.created_at))
+      .limit(input.limit)
+      .offset(input.offset)
+      .execute();
+
+    // Return results (no numeric conversions needed for this table)
+    return results;
+  } catch (error) {
+    console.error('Failed to get user posts:', error);
+    throw error;
+  }
 }

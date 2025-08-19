@@ -1,16 +1,28 @@
+import { db } from '../db';
+import { commentsTable } from '../db/schema';
 import { type UpdateCommentInput, type Comment } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateComment(input: UpdateCommentInput): Promise<Comment> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing comment's content in the database.
-    // Should validate that comment exists and user owns the comment.
-    return Promise.resolve({
-        id: input.id,
-        user_id: 1, // Placeholder user ID
-        post_id: 1, // Placeholder post ID
+export const updateComment = async (input: UpdateCommentInput): Promise<Comment> => {
+  try {
+    // Update comment content and updated_at timestamp
+    const result = await db.update(commentsTable)
+      .set({
         content: input.content,
-        like_count: 0,
-        created_at: new Date(),
         updated_at: new Date()
-    } as Comment);
-}
+      })
+      .where(eq(commentsTable.id, input.id))
+      .returning()
+      .execute();
+
+    // Check if comment was found and updated
+    if (result.length === 0) {
+      throw new Error(`Comment with id ${input.id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Comment update failed:', error);
+    throw error;
+  }
+};
